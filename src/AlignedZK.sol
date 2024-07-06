@@ -2,6 +2,8 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.24;
 
+import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+
 // This is how the Aligned Layer Service Manager is defined.
 // So I imagine we are just writing a Rollup that calls the 3
 // functions in the interface.
@@ -22,4 +24,22 @@ interface IAlignedLayerServiceManager {
 contract ZKRollup is Ownable {
     IAlignedLayerServiceManager public alignedManager;
 
+    // params for the Aligned kini (library?).
+    bytes32 public currentBatchMerkleRoot;
+    string public currentBatchDataPointer;
+
+    // events that we're going to emit.
+    event BatchSubmitted(bytes32 indexed batchMerkleRoot, string batchDataPointer);
+    event BatchVerified(bytes32 indexed batchMerkleRoot, bool verified);
+
+    // build the manager constructor.
+    constructor(address _alignedManager) {
+        alignedManager = IAlignedLayerServiceManager(_alignedManager);
+    }
+
+    // two major functions e need.
+
+    function submitBatch() {}
+
+    function verifyBatch() {}
 }
