@@ -18,4 +18,3 @@ aligned submit \
     --conn wss://batcher.alignedlayer.com \
     --keystore_path ~/.aligned_keystore/keystore0
 ```
-

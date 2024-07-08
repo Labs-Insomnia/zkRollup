@@ -37,7 +37,7 @@ contract ZKRollup is Ownable {
         alignedManager = IAlignedLayerServiceManager(_alignedManager);
     }
 
-    // two major functions e need.
+    // two major functions we need.
 
     function submitBatch() {}
 
