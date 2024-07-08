@@ -106,3 +106,161 @@ for CheckHashPreimageStf<Cond>
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::Sha256;
+    use proptest::prelude::*;
+    use sov_rollup_interface::da::{BlobReaderTrait, DaSpec, BlockHeaderTrait, ValidityCondition as DaValidityCondition, BasicAddress, Time};
+    use sov_rollup_interface::stf::StateTransitionFunction;
+    use serde::{Serialize, Deserialize};
+
+    // Mock Address
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct MockAddress;
+
+    impl BasicAddress for MockAddress {}
+
+    // Mock structures to implement required traits
+    #[derive(Clone, Serialize, Deserialize)]
+    struct MockBlobTransaction {
+        data: Vec<u8>,
+    }
+
+    impl BlobReaderTrait for MockBlobTransaction {
+        type Address = MockAddress;
+
+        fn sender(&self) -> Self::Address {
+            MockAddress
+        }
+
+        fn hash(&self) -> [u8; 32] {
+            Sha256::digest(&self.data).into()
+        }
+
+        fn verified_data(&self) -> &[u8] {
+            &self.data
+        }
+
+        fn total_len(&self) -> usize {
+            self.data.len()
+        }
+    }
+
+    #[derive(Default, Clone, Serialize, Deserialize)]
+    struct MockBlockHeader;
+
+    impl BlockHeaderTrait for MockBlockHeader {
+        type Hash = [u8; 32];
+
+        fn prev_hash(&self) -> Self::Hash {
+            [0u8; 32]
+        }
+
+        fn hash(&self) -> Self::Hash {
+            [0u8; 32]
+        }
+
+        fn height(&self) -> u64 {
+            0
+        }
+
+        fn time(&self) -> Time {
+            Time::from_secs(0)
+        }
+    }
+
+    #[derive(Default, Clone, Serialize, Deserialize)]
+    struct MockValidityCondition;
+
+    impl DaValidityCondition for MockValidityCondition {}
+
+    #[derive(Default)]
+    struct MockDaSpec;
+
+    impl DaSpec for MockDaSpec {
+        type SlotHash = [u8; 32];
+        type BlockHeader = MockBlockHeader;
+        type BlobTransaction = MockBlobTransaction;
+        type Address = MockAddress;
+        type ValidityCondition = MockValidityCondition;
+        type InclusionMultiProof = ();
+        type CompletenessProof = ();
+        type ChainParams = ();
+    }
+
+    #[test]
+    fn test_apply_slot_success() {
+        let mut stf = CheckHashPreimageStf::<MockValidityCondition>::default();
+        let pre_state_root = [0u8; 32];
+        let witness = ();
+        let slot_header = MockBlockHeader::default();
+        let validity_condition = MockValidityCondition::default();
+
+        // Data that hashes to the desired hash
+        let data = [
+            102, 104, 122, 173, 248, 98, 189, 119, 108, 143, 193, 139, 142, 159, 142, 32, 8,
+            151, 20, 133, 110, 226, 51, 179, 144, 42, 89, 29, 13, 95, 41, 37,
+        ];
+        let mut blob = MockBlobTransaction { data: data.to_vec() };
+
+        let result = stf.apply_slot(
+            &pre_state_root,
+            witness,
+            &slot_header,
+            &validity_condition,
+            vec![&mut blob],
+        );
+
+        assert_eq!(result.batch_receipts.len(), 1);
+        assert_eq!(result.batch_receipts[0].inner, ApplySlotResult::Success);
+    }
+
+    #[test]
+    fn test_apply_slot_failure() {
+        let mut stf = CheckHashPreimageStf::<MockValidityCondition>::default();
+        let pre_state_root = [0u8; 32];
+        let witness = ();
+        let slot_header = MockBlockHeader::default();
+        let validity_condition = MockValidityCondition::default();
+
+        // Data that does not hash to the desired hash
+        let data = b"incorrect preimage data";
+        let mut blob = MockBlobTransaction { data: data.to_vec() };
+
+        let result = stf.apply_slot(
+            &pre_state_root,
+            witness,
+            &slot_header,
+            &validity_condition,
+            vec![&mut blob],
+        );
+
+        assert_eq!(result.batch_receipts.len(), 1);
+        assert_eq!(result.batch_receipts[0].inner, ApplySlotResult::Failure);
+    }
+
+    proptest! {
+        #[test]
+        fn test_apply_slot_with_random_data(data in any::<Vec<u8>>()) {
+            let mut stf = CheckHashPreimageStf::<MockValidityCondition>::default();
+            let pre_state_root = [0u8; 32];
+            let witness = ();
+            let slot_header = MockBlockHeader::default();
+            let validity_condition = MockValidityCondition::default();
+
+            let mut blob = MockBlobTransaction { data };
+
+            let result = stf.apply_slot(
+                &pre_state_root,
+                witness,
+                &slot_header,
+                &validity_condition,
+                vec![&mut blob],
+            );
+
+            assert_eq!(result.batch_receipts.len(), 1);
+        }
+    }
+}
