@@ -22,15 +22,16 @@ pub enum ApplySlotResult {
 }
 
 impl<Vm: Zkvm, Cond: ValidityCondition, Da: DaSpec> StateTransitionFunction<Vm, Da>
-    for CheckHashPreimageStf<Cond>
+for CheckHashPreimageStf<Cond>
 {
     // Since our rollup is stateless, we don't need to consider the StateRoot.
-    type StateRoot = [u8; 0];
+    type StateRoot = [u8; 32];
+    type InitialState = ();
 
     // This represents the initial configuration of the rollup, but it is not supported in this tutorial.
-    type GenesisParams = ();
-    type PreState = ();
-    type ChangeSet = ();
+    // type GenesisParams = ();
+    // type PreState = ();
+    // type ChangeSet = ();
 
     // We could incorporate the concept of a transaction into the rollup, but we leave it as an exercise for the reader.
     type TxReceiptContents = ();
@@ -45,25 +46,27 @@ impl<Vm: Zkvm, Cond: ValidityCondition, Da: DaSpec> StateTransitionFunction<Vm, 
     type Condition = Cond;
 
     // Perform one-time initialization for the genesis block.
+    //
+    // Fixes: linter says:
+    // Method `init_chain` has 2 parameters, but the declaration in trait `StateTransitionFunction` has 1 [E0050]
     fn init_chain(
-        &self,
-        _base_state: Self::PreState,
-        _params: Self::GenesisParams,
-    ) -> ([u8; 0], ()) {
-        ([], ())
+        &mut self,
+        _initial_state: Self::InitialState,
+    ) -> Self::StateRoot {
+        [0u8; 32]
     }
 
+    // Fixes: linter says:
+    // Method `apply_slot` has 6 parameters, but the declaration in trait `StateTransitionFunction` has 5 [E0050]
     fn apply_slot<'a, I>(
-        &self,
-        _pre_state_root: &[u8; 0],
-        _base_state: Self::PreState,
+        &mut self,
+        _pre_state_root: &Self::StateRoot,
         _witness: Self::Witness,
         _slot_header: &Da::BlockHeader,
         _validity_condition: &Da::ValidityCondition,
         blobs: I,
     ) -> SlotResult<
         Self::StateRoot,
-        Self::ChangeSet,
         Self::BatchReceiptContents,
         Self::TxReceiptContents,
         Self::Witness,
@@ -97,8 +100,7 @@ impl<Vm: Zkvm, Cond: ValidityCondition, Da: DaSpec> StateTransitionFunction<Vm, 
         }
 
         SlotResult {
-            state_root: [],
-            change_set: (),
+            state_root: [0u8; 32], // We don't need to update the state root, let's return a dummy state root for now.
             batch_receipts: receipts,
             witness: (),
         }
